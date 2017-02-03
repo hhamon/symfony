@@ -41,6 +41,37 @@ class ResolveDefinitionTemplatesPass extends AbstractRecursivePass
                 $this->container->setDefinition($this->currentId, $value);
             }
         }
+        $parameterBag = $this->container->getParameterBag();
+        $class = $parameterBag->resolveValue($value->getClass());
+        if ($class && $instanceof = $value->getInstanceofConditionals()) {
+            foreach ($instanceof as $interface => $definition) {
+                $interface = $parameterBag->resolveValue($interface);
+                if ($interface !== $class && (!$this->container->getReflectionClass($interface) || !$this->container->getReflectionClass($class))) {
+                    continue;
+                }
+                if ($interface === $class || is_subclass_of($class, $interface)) {
+                    // deep clone
+                    $definition = unserialize(serialize($definition));
+
+                    // inherit values not specified in the type definition
+                    $changes = $definition->getChanges();
+                    if (!isset($changes['shared'])) {
+                        $definition->setShared($value->isShared());
+                    }
+                    if (!isset($changes['abstract'])) {
+                        $definition->setAbstract($value->isAbstract());
+                    }
+
+                    $definition->setInheritTags(true);
+                    $definition->setAutowiredCalls(array_merge($value->getAutowiredCalls(), $definition->getAutowiredCalls()));
+
+                    $value = $this->mergeDefinition($value, $definition);
+                }
+            }
+            if ($isRoot) {
+                $this->container->setDefinition($this->currentId, $value);
+            }
+        }
 
         return parent::processValue($value, $isRoot);
     }
@@ -81,6 +112,12 @@ class ResolveDefinitionTemplatesPass extends AbstractRecursivePass
         }
 
         $this->container->log($this, sprintf('Resolving inheritance for "%s" (parent: %s).', $this->currentId, $parent));
+
+        return $this->mergeDefinition($parentDef, $definition);
+    }
+
+    private function mergeDefinition(Definition $parentDef, ChildDefinition $definition)
+    {
         $def = new Definition();
 
         // merge in parent definition
