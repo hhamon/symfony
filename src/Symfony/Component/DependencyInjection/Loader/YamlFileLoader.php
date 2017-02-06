@@ -51,6 +51,7 @@ class YamlFileLoader extends FileLoader
         'arguments' => 'arguments',
         'properties' => 'properties',
         'getters' => 'getters',
+        'tails' => 'tails',
         'configurator' => 'configurator',
         'calls' => 'calls',
         'tags' => 'tags',
@@ -381,6 +382,10 @@ class YamlFileLoader extends FileLoader
             $definition->setOverriddenGetters($this->resolveServices($service['getters']));
         }
 
+        if (isset($service['tails'])) {
+            $definition->setOverridenTails($this->resolveServices($service['tails']));
+        }
+
         if (isset($service['calls'])) {
             if (!is_array($service['calls'])) {
                 throw new InvalidArgumentException(sprintf('Parameter "calls" must be an array for service "%s" in %s. Check your YAML syntax.', $id, $file));
@@ -450,14 +455,23 @@ class YamlFileLoader extends FileLoader
 
         $autowire = isset($service['autowire']) ? $service['autowire'] : (isset($defaults['autowire']) ? $defaults['autowire'] : null);
         if (is_array($autowire)) {
-            $autowiredCalls = array();
+            $autowiredCalls = $autowiredTails = array();
 
             foreach ($autowire as $v) {
                 if (is_string($v)) {
                     $autowiredCalls[] = $v;
+                } elseif ($v instanceof TaggedValue && is_string($v->getValue())) {
+                    if ('tail' !== $v->getTag()) {
+                        throw new InvalidArgumentException(sprintf('Unknown tag "!%s" for parameter "autowire" of service "%s" in %s. Check your YAML syntax.', $v->getTag(), $id, $file));
+                    }
+                    $autowiredTails[] = $v->getValue();
                 } else {
                     throw new InvalidArgumentException(sprintf('Parameter "autowire" must be boolean or string[] for service "%s" in %s. Check your YAML syntax.', $id, $file));
                 }
+            }
+
+            if ($autowiredTails) {
+                $definition->setAutowiredTails($autowiredTails);
             }
 
             if ($autowiredCalls) {

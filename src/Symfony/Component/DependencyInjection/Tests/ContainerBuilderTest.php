@@ -895,6 +895,18 @@ class ContainerBuilderTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(array($second, $first), $configs);
     }
 
+    public function testOverridenTail()
+    {
+        $builder = new ContainerBuilder();
+        $builder
+            ->register('foo', FooClass::class)
+            ->setOverridenTail('method1', array(1 => 123));
+
+        $foo = $builder->get('foo');
+
+        $this->assertSame(array(456, 123), $foo->method1(456));
+    }
+
     public function testOverriddenGetter()
     {
         $builder = new ContainerBuilder();
@@ -1127,6 +1139,10 @@ class ContainerBuilderTest extends \PHPUnit_Framework_TestCase
 
 class FooClass
 {
+    public function method1($a1, $a2)
+    {
+        return func_get_args();
+    }
 }
 
 class A

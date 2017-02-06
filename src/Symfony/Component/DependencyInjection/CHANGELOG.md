@@ -4,6 +4,7 @@ CHANGELOG
 3.3.0
 -----
 
+ * [EXPERIMENTAL] added support for tail-injection for methods + autowiring
  * [EXPERIMENTAL] added "service-locator" argument for lazy loading a set of identified values and services
  * [EXPERIMENTAL] added prototype services for PSR4-based discovery and registration
  * added `ContainerBuilder::getReflectionClass()` for retrieving and tracking reflection class info

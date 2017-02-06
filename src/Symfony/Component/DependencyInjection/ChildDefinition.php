@@ -170,6 +170,16 @@ class ChildDefinition extends Definition
     }
 
     /**
+     * {@inheritdoc}
+     */
+    public function setAutowiredTails(array $autowiredTails)
+    {
+        $this->changes['autowired_tails'] = true;
+
+        return parent::setAutowiredTails($autowiredTails);
+    }
+
+    /**
      * Gets an argument to pass to the service constructor/factory method.
      *
      * If replaceArgument() has been used to replace an argument, this method

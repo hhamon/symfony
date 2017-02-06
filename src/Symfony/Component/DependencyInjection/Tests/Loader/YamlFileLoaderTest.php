@@ -444,6 +444,16 @@ class YamlFileLoaderTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse($container->getDefinition('no_defaults_child')->isAutowired());
     }
 
+    public function testTails()
+    {
+        $container = new ContainerBuilder();
+        $loader = new YamlFileLoader($container, new FileLocator(self::$fixturesPath.'/yaml'));
+        $loader->load('services_tails.yml');
+
+        $this->assertEquals(array('method1' => array(1 => 'bar', 2 => new Reference('bar'))), $container->getDefinition('foo')->getOverridenTails());
+        $this->assertEquals(array('*Action'), $container->getDefinition('foo')->getAutowiredTails());
+    }
+
     public function testGetter()
     {
         $container = new ContainerBuilder();

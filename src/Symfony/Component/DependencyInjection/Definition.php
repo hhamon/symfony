@@ -30,6 +30,7 @@ class Definition
     private $properties = array();
     private $calls = array();
     private $getters = array();
+    private $tails = array();
     private $configurator;
     private $tags = array();
     private $public = true;
@@ -38,6 +39,7 @@ class Definition
     private $lazy = false;
     private $decoratedService;
     private $autowiredCalls = array();
+    private $autowiredTails = array();
     private $autowiringTypes = array();
 
     protected $arguments;
@@ -361,6 +363,41 @@ class Definition
     public function getOverriddenGetters()
     {
         return $this->getters;
+    }
+
+    /**
+     * @return $this
+     *
+     * @experimental in version 3.3
+     */
+    public function setOverridenTail($name, array $defaultArgs)
+    {
+        if (!$name) {
+            throw new InvalidArgumentException(sprintf('Tail method name cannot be empty.'));
+        }
+        $this->tails[strtolower($name)] = $defaultArgs;
+
+        return $this;
+    }
+
+    /**
+     * @return $this
+     *
+     * @experimental in version 3.3
+     */
+    public function setOverridenTails(array $tails)
+    {
+        $this->tails = array_change_key_case($tails, CASE_LOWER);
+
+        return $this;
+    }
+
+    /**
+     * @experimental in version 3.3
+     */
+    public function getOverridenTails()
+    {
+        return $this->tails;
     }
 
     /**
@@ -710,7 +747,7 @@ class Definition
      */
     public function isAutowired()
     {
-        return !empty($this->autowiredCalls);
+        return $this->autowiredCalls || $this->autowiredTails;
     }
 
     /**
@@ -754,6 +791,26 @@ class Definition
     public function setAutowiredCalls(array $autowiredCalls)
     {
         $this->autowiredCalls = $autowiredCalls;
+
+        return $this;
+    }
+
+    /**
+     * @experimental in 3.3
+     */
+    public function getAutowiredTails()
+    {
+        return $this->autowiredTails;
+    }
+
+    /**
+     * @experimental in 3.3
+     *
+     * @return $this
+     */
+    public function setAutowiredTails(array $autowiredTails)
+    {
+        $this->autowiredTails = $autowiredTails;
 
         return $this;
     }

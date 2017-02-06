@@ -216,15 +216,18 @@ class ResolveDefinitionTemplatesPassTest extends \PHPUnit_Framework_TestCase
 
         $container->register('parent', 'stdClass')
             ->setAutowiredCalls(array('foo'))
+            ->setAutowiredTails(array('bar'))
         ;
 
         $container->setDefinition('child1', new ChildDefinition('parent'))
             ->setAutowiredCalls(array('baz'))
+            ->setAutowiredTails(array('buz'))
         ;
 
         $this->process($container);
 
         $this->assertEquals(array('baz'), $container->getDefinition('child1')->getAutowiredCalls());
+        $this->assertEquals(array('buz'), $container->getDefinition('child1')->getAutowiredTails());
     }
 
     public function testSetAutowiredOnServiceIsParent()
@@ -233,6 +236,7 @@ class ResolveDefinitionTemplatesPassTest extends \PHPUnit_Framework_TestCase
 
         $container->register('parent', 'stdClass')
             ->setAutowiredCalls(array('__construct', 'set*'))
+            ->setAutowiredTails(array('*Action'))
         ;
 
         $container->setDefinition('child1', new ChildDefinition('parent'));
@@ -240,6 +244,7 @@ class ResolveDefinitionTemplatesPassTest extends \PHPUnit_Framework_TestCase
         $this->process($container);
 
         $this->assertEquals(array('__construct', 'set*'), $container->getDefinition('child1')->getAutowiredCalls());
+        $this->assertEquals(array('*Action'), $container->getDefinition('child1')->getAutowiredTails());
     }
 
     public function testDeepDefinitionsResolving()
@@ -361,6 +366,20 @@ class ResolveDefinitionTemplatesPassTest extends \PHPUnit_Framework_TestCase
 
         $def = $container->getDefinition('child');
         $this->assertSame('ParentClass', $def->getClass());
+    }
+
+    public function testTails()
+    {
+        $container = new ContainerBuilder();
+        $container->register('parent', 'foo')->setOverridenTail('foo', array('moo', 'b'));
+        $container->setDefinition('child', new ChildDefinition('parent'))
+            ->setOverridenTail('foo', array('index_0' => 'a'))
+        ;
+
+        $this->process($container);
+
+        $def = $container->getDefinition('child');
+        $this->assertEquals(array('foo' => array('a', 'b')), $def->getOverridenTails());
     }
 
     protected function process(ContainerBuilder $container)
