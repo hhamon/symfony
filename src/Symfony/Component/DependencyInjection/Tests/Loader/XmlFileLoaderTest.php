@@ -594,6 +594,15 @@ class XmlFileLoaderTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(array('set*', 'bar'), $container->getDefinition('autowire_array')->getAutowiredCalls());
     }
 
+    public function testTails()
+    {
+        $container = new ContainerBuilder();
+        $loader = new XmlFileLoader($container, new FileLocator(self::$fixturesPath.'/xml'));
+        $loader->load('services_tails.xml');
+
+        $this->assertEquals(array('method1' => array(1 => 'bar', 2 => new Reference('bar'))), $container->getDefinition('foo')->getOverridenTails());
+    }
+
     public function testGetter()
     {
         $container = new ContainerBuilder();

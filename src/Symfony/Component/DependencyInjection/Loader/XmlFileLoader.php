@@ -303,6 +303,10 @@ class XmlFileLoader extends FileLoader
             }
         }
 
+        foreach ($this->getChildren($service, 'tail') as $call) {
+            $definition->setOverridenTail($call->getAttribute('method'), $this->getArgumentsAsPhp($call, 'argument', false, (bool) $parent));
+        }
+
         foreach ($this->getChildren($service, 'call') as $call) {
             $definition->addMethodCall($call->getAttribute('method'), $this->getArgumentsAsPhp($call, 'argument'));
         }
@@ -344,13 +348,23 @@ class XmlFileLoader extends FileLoader
             $definition->addAutowiringType($type->textContent);
         }
 
-        $autowiredCalls = array();
+        $autowiredCalls = $autowiredTails = array();
         foreach ($this->getChildren($service, 'autowire') as $tag) {
-            $autowiredCalls[] = $tag->textContent;
+            if ('tails' === $tag->getAttribute('type')) {
+                $autowiredTails[] = $tag->textContent;
+            } elseif (!$tag->getAttribute('type') || 'calls' === $tag->getAttribute('type')) {
+                $autowiredCalls[] = $tag->textContent;
+            } else {
+                throw new InvalidArgumentException(sprintf('The "type" attribute of "<autowire>" tags must be set to "tails" or "calls", found "%s" for service "%s" in %s.', $tag->getAttribute('type'), $service->getAttribute('id'), $file));
+            }
         }
 
-        if ($autowiredCalls && $service->hasAttribute('autowire')) {
+        if (($autowiredCalls || $autowiredTails) && $service->hasAttribute('autowire')) {
             throw new InvalidArgumentException(sprintf('The "autowire" attribute cannot be used together with "<autowire>" tags for service "%s" in %s.', $service->getAttribute('id'), $file));
+        }
+
+        if ($autowiredTails) {
+            $definition->setAutowiredTails($autowiredTails);
         }
 
         if ($autowiredCalls) {

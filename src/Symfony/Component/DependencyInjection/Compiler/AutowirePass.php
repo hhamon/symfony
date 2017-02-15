@@ -34,6 +34,11 @@ class AutowirePass extends AbstractRecursivePass
      */
     const MODE_OPTIONAL = 2;
 
+    /**
+     * @internal
+     */
+    const MODE_TAIL = 3;
+
     private $definedTypes = array();
     private $types;
     private $ambiguousServiceTypes = array();
@@ -82,7 +87,7 @@ class AutowirePass extends AbstractRecursivePass
      */
     protected function processValue($value, $isRoot = false)
     {
-        if (!$value instanceof Definition || !$value->getAutowiredCalls()) {
+        if (!$value instanceof Definition || !($value->getAutowiredCalls() || $value->getAutowiredTails())) {
             return parent::processValue($value, $isRoot);
         }
 
@@ -116,6 +121,13 @@ class AutowirePass extends AbstractRecursivePass
 
         if ($overriddenGetters !== $value->getOverriddenGetters()) {
             $value->setOverriddenGetters($overriddenGetters);
+        }
+
+        $autowiredMethods = $this->getMethodsToAutowire($reflectionClass, $value->getAutowiredTails());
+        $overridenTails = $this->autowireTails($reflectionClass, $value->getOverridenTails(), $autowiredMethods);
+
+        if ($overridenTails !== $value->getOverridenTails()) {
+            $value->setOverridenTails($overridenTails);
         }
 
         return parent::processValue($value, $isRoot);
@@ -223,7 +235,12 @@ class AutowirePass extends AbstractRecursivePass
     private function autowireMethod(\ReflectionMethod $reflectionMethod, array $arguments, $mode)
     {
         $didAutowire = false; // Whether any arguments have been autowired or not
-        foreach ($reflectionMethod->getParameters() as $index => $parameter) {
+
+        $parameters = $reflectionMethod->getParameters();
+        if (self::MODE_TAIL === $mode) {
+            $parameters = array_reverse($parameters, true);
+        }
+        foreach ($parameters as $index => $parameter) {
             if (array_key_exists($index, $arguments) && '' !== $arguments[$index]) {
                 continue;
             }
@@ -244,6 +261,9 @@ class AutowirePass extends AbstractRecursivePass
                 if (!$parameter->isOptional()) {
                     if (self::MODE_REQUIRED === $mode) {
                         throw new RuntimeException(sprintf('Cannot autowire service "%s": argument $%s of method %s::%s() must have a type-hint or be given a value explicitly.', $this->currentId, $parameter->name, $reflectionMethod->class, $reflectionMethod->name));
+                    }
+                    if (self::MODE_TAIL === $mode) {
+                        break;
                     }
 
                     return array();
@@ -285,6 +305,9 @@ class AutowirePass extends AbstractRecursivePass
                         if (1 === $e->getCode() || self::MODE_REQUIRED === $mode) {
                             throw $e;
                         }
+                        if (self::MODE_TAIL === $mode) {
+                            break;
+                        }
 
                         return array();
                     }
@@ -295,6 +318,9 @@ class AutowirePass extends AbstractRecursivePass
                 if (!$parameter->isDefaultValueAvailable()) {
                     if (self::MODE_REQUIRED === $mode) {
                         throw new RuntimeException(sprintf('Cannot autowire argument $%s of method %s::%s() for service "%s": Class %s does not exist.', $parameter->name, $reflectionMethod->class, $reflectionMethod->name, $this->currentId, $typeName));
+                    }
+                    if (self::MODE_TAIL === $mode) {
+                        break;
                     }
 
                     return array();
@@ -364,6 +390,38 @@ class AutowirePass extends AbstractRecursivePass
         }
 
         return $overridenGetters;
+    }
+
+    /**
+     * Autowires method tails.
+     *
+     * @return array
+     */
+    private function autowireTails(\ReflectionClass $reflectionClass, array $overridenTails, array $autowiredMethods)
+    {
+        foreach ($overridenTails as $lcMethod => $defaultValues) {
+            if (isset($autowiredMethods[$lcMethod]) || !$reflectionClass->hasMethod($lcMethod)) {
+                continue;
+            }
+            $autowiredMethods[$lcMethod] = $reflectionClass->getMethod($lcMethod);
+        }
+
+        foreach ($autowiredMethods as $lcMethod => $reflectionMethod) {
+            if ($reflectionMethod->isConstructor()
+                || !$reflectionMethod->getNumberOfParameters()
+                || $reflectionMethod->isFinal()
+            ) {
+                continue;
+            }
+
+            $defaultValues = isset($overridenTails[$lcMethod]) ? $overridenTails[$lcMethod] : array();
+
+            if ($defaultValues = $this->autowireMethod($reflectionMethod, $defaultValues, self::MODE_TAIL)) {
+                $overridenTails[$lcMethod] = $defaultValues;
+            }
+        }
+
+        return $overridenTails;
     }
 
     /**

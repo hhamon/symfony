@@ -14,6 +14,7 @@ namespace Symfony\Component\DependencyInjection\Compiler;
 use Symfony\Component\DependencyInjection\ChildDefinition;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Exception\ExceptionInterface;
+use Symfony\Component\DependencyInjection\Exception\OutOfBoundsException;
 use Symfony\Component\DependencyInjection\Exception\RuntimeException;
 
 /**
@@ -126,6 +127,7 @@ class ResolveDefinitionTemplatesPass extends AbstractRecursivePass
         $def->setArguments($parentDef->getArguments());
         $def->setMethodCalls($parentDef->getMethodCalls());
         $def->setOverriddenGetters($parentDef->getOverriddenGetters());
+        $def->setOverridenTails($parentDef->getOverridenTails());
         $def->setProperties($parentDef->getProperties());
         if ($parentDef->getAutowiringTypes(false)) {
             $def->setAutowiringTypes($parentDef->getAutowiringTypes(false));
@@ -139,6 +141,7 @@ class ResolveDefinitionTemplatesPass extends AbstractRecursivePass
         $def->setPublic($parentDef->isPublic());
         $def->setLazy($parentDef->isLazy());
         $def->setAutowiredCalls($parentDef->getAutowiredCalls());
+        $def->setAutowiredTails($parentDef->getAutowiredTails());
 
         // overwrite with values specified in the decorator
         $changes = $definition->getChanges();
@@ -165,6 +168,9 @@ class ResolveDefinitionTemplatesPass extends AbstractRecursivePass
         }
         if (isset($changes['autowired_calls'])) {
             $def->setAutowiredCalls($definition->getAutowiredCalls());
+        }
+        if (isset($changes['autowired_tails'])) {
+            $def->setAutowiredTails($definition->getAutowiredTails());
         }
         if (isset($changes['decorated_service'])) {
             $decoratedService = $definition->getDecoratedService();
@@ -205,6 +211,29 @@ class ResolveDefinitionTemplatesPass extends AbstractRecursivePass
         foreach ($definition->getOverriddenGetters() as $k => $v) {
             $def->setOverriddenGetter($k, $v);
         }
+
+        // merge overridden tails
+        $tails = $def->getOverridenTails();
+        foreach ($definition->getOverridenTails() as $method => $defaultValues) {
+            foreach ($defaultValues as $k => $v) {
+                if (is_numeric($k)) {
+                    $tails[$method][] = $v;
+                    continue;
+                }
+
+                if (0 !== strpos($k, 'index_')) {
+                    throw new RuntimeException(sprintf('Invalid argument key "%s" found.', $k));
+                }
+
+                $index = (int) substr($k, strlen('index_'));
+                if (!isset($tails[$method][$index])) {
+                    $range = array_keys($tails[$method]);
+                    throw new OutOfBoundsException(sprintf('The index "%d" is not in the range [%s, %s] defined by the parent.', $index, min($range), max($range)));
+                }
+                $tails[$method][$index] = $v;
+            }
+        }
+        $def->setOverridenTails($tails);
 
         // merge autowiring types
         foreach ($definition->getAutowiringTypes(false) as $autowiringType) {

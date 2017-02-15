@@ -622,6 +622,17 @@ class AutowirePassTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(array(AutowirePass::class.': Autowiring\'s patterns "not", "exist*" for service "foo" don\'t match any method.'), $container->getCompiler()->getLog());
     }
 
+    public function testOverridenTailCalls()
+    {
+        $container = new ContainerBuilder();
+
+        $container->register('a', A::class);
+        $container->register('foo', Foo::class);
+        $definition = $container->register('bar', SetterInjection::class);
+        $definition->setAutowired(true);
+        $definition->addMethodCall('setDependencies', array(new Reference('foo')));
+    }
+
     public function testEmptyStringIsKept()
     {
         $container = new ContainerBuilder();
@@ -637,10 +648,39 @@ class AutowirePassTest extends \PHPUnit_Framework_TestCase
 
         $this->assertEquals(array(new Reference('a'), '', new Reference('lille')), $container->getDefinition('foo')->getArguments());
     }
+
+    public function testTail()
+    {
+        $container = new ContainerBuilder();
+
+        $container->register('foo', FooController::class)
+            ->setAutowiredTails(array('*Action'))
+            ->setOverridenTail('barAction', array(1 => 123));
+
+        $pass = new AutowirePass();
+        $pass->process($container);
+
+        $expected = array(
+            'baraction' => array(1 => 123, 2 => new Reference('autowired.'.Foo::class)),
+            'fooaction' => array(2 => new Reference('autowired.'.Foo::class)),
+        );
+        $this->assertEquals($expected, $container->getDefinition('foo')->getOverridenTails());
+    }
 }
 
 class Foo
 {
+}
+
+class FooController
+{
+    public function fooAction($a, $b, Foo $foo)
+    {
+    }
+
+    public function barAction($a, $b, Foo $foo)
+    {
+    }
 }
 
 class Bar

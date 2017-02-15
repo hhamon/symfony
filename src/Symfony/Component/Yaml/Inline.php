@@ -710,8 +710,11 @@ class Inline
 
         // Is followed by a scalar
         if (!isset($value[$nextOffset]) || !in_array($value[$nextOffset], array('[', '{'), true)) {
-            // Manage scalars in {@link self::evaluateScalar()}
-            return;
+            // "tail" is the only tag we allow on scalars before 4.0 - as required by the DI component
+            if ('tail' !== $tag) {
+                // Manage scalars in {@link self::evaluateScalar()}
+                return;
+            }
         }
 
         // Built-in tags
