@@ -603,7 +603,6 @@ abstract class Kernel implements KernelInterface, TerminableInterface
         }
 
         $container->addCompilerPass(new AddAnnotatedClassesToCachePass($this));
-        $container->addResource(new EnvParametersResource('SYMFONY__'));
 
         return $container;
     }

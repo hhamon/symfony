@@ -4,6 +4,7 @@ CHANGELOG
 4.0.0
 -----
 
+ * removed support for the special `SYMFONY__` environment variables
  * removed the `DataCollector::varToString()` method, use `DataCollector::cloneVar()`
    instead
  * using the `DataCollector::cloneVar()` method requires the VarDumper component
